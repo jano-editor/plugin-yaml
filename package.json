@@ -17,5 +17,8 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jano-editor/plugin-yaml.git"
+  },
+  "dependencies": {
+    "yaml": "^2.8.3"
   }
 }

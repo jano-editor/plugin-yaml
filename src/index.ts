@@ -1,4 +1,5 @@
 import type { LanguagePlugin, PluginContext } from "@jano-editor/plugin-types";
+import { parse, parseDocument } from "yaml";
 
 const TAB_SIZE = 2;
 
@@ -19,64 +20,17 @@ const plugin: LanguagePlugin = {
   },
 
   onFormat(ctx: PluginContext) {
-    const lines = [...ctx.lines] as string[];
-    const formatted: string[] = [];
-    let indentLevel = 0;
-
-    for (let i = 0; i < lines.length; i++) {
-      const raw = lines[i];
-      const trimmed = raw.trim();
-
-      // empty lines pass through
-      if (trimmed === "") {
-        formatted.push("");
-        continue;
-      }
-
-      // comment: keep at current indent
-      if (trimmed.startsWith("#")) {
-        formatted.push(" ".repeat(indentLevel * TAB_SIZE) + trimmed);
-        continue;
-      }
-
-      // list item: indent at current level
-      if (trimmed.startsWith("- ")) {
-        formatted.push(" ".repeat(indentLevel * TAB_SIZE) + trimmed);
-        // if list item has nested content (value after - is a key:)
-        if (/^- \S+:/.test(trimmed) && trimmed.endsWith(":")) {
-          indentLevel++;
-        }
-        continue;
-      }
-
-      // key: value or key:
-      if (/^\S.*:/.test(trimmed)) {
-        // check if this key is at a lower indent than current (dedent)
-        const originalIndent = raw.length - raw.trimStart().length;
-        const expectedIndent = indentLevel * TAB_SIZE;
-
-        if (originalIndent < expectedIndent && indentLevel > 0) {
-          // dedent to match original structure
-          indentLevel = Math.round(originalIndent / TAB_SIZE);
-        }
-
-        formatted.push(" ".repeat(indentLevel * TAB_SIZE) + trimmed);
-
-        // key with no value (just "key:") → next lines indent
-        if (trimmed.endsWith(":")) {
-          indentLevel++;
-        }
-        continue;
-      }
-
-      // everything else: keep at current indent
-      formatted.push(" ".repeat(indentLevel * TAB_SIZE) + trimmed);
+    const raw = ctx.lines.join("\n");
+    try {
+      const doc = parseDocument(raw);
+      const formatted = doc.toString({ indent: TAB_SIZE, lineWidth: 0 });
+      return {
+        replaceAll: formatted.split("\n"),
+        cursors: [{ position: ctx.cursors[0].position, anchor: null }],
+      };
+    } catch {
+      return null;
     }
-
-    return {
-      replaceAll: formatted,
-      cursors: [{ position: ctx.cursors[0].position, anchor: null }],
-    };
   },
 
   onCursorAction(ctx: PluginContext) {
@@ -107,6 +61,19 @@ const plugin: LanguagePlugin = {
       ],
       cursors: [{ position: { line: curLine, col: indent.length }, anchor: null }],
     };
+  },
+
+  onValidate(lines: readonly string[]) {
+    const raw = lines.join("\n");
+    try {
+      parse(raw);
+      return [];
+    } catch (err: any) {
+      const line = err.linePos?.[0]?.line ? err.linePos[0].line - 1 : 0;
+      const col = err.linePos?.[0]?.col ? err.linePos[0].col - 1 : 0;
+      const msg = err.message?.split("\n")[0] || "YAML syntax error";
+      return [{ line, col, severity: "error" as const, message: msg }];
+    }
   },
 };
 
