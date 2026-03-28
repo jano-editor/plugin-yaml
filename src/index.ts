@@ -1,4 +1,4 @@
-import type { LanguagePlugin, PluginContext } from "@jano-editor/plugin-types";
+import type { LanguagePlugin, PluginContext, KeyInfo } from "@jano-editor/plugin-types";
 import { parse, parseDocument } from "yaml";
 
 const TAB_SIZE = 2;
@@ -17,6 +17,42 @@ const plugin: LanguagePlugin = {
       type: /^[\w.-]+(?=\s*:)/gm,
       variable: /\$\{?\w+\}?/g,
     },
+  },
+
+  onKeyDown(key: KeyInfo, ctx: PluginContext) {
+    // Ctrl+/ → toggle comment
+    if (key.ctrl && key.name === "/") {
+      const comment = "# ";
+      const lines = [...ctx.lines];
+      const affectedLines = new Set<number>();
+      for (const c of ctx.cursors) {
+        if (c.anchor) {
+          const startY = Math.min(c.position.line, c.anchor.line);
+          const endY = Math.max(c.position.line, c.anchor.line);
+          for (let l = startY; l <= endY; l++) affectedLines.add(l);
+        } else {
+          affectedLines.add(c.position.line);
+        }
+      }
+      const sorted = [...affectedLines].sort((a, b) => a - b);
+      const allCommented = sorted.every((l) => lines[l].trimStart().startsWith("#"));
+      for (const l of sorted) {
+        if (allCommented) {
+          const idx = lines[l].indexOf("#");
+          const end = lines[l][idx + 1] === " " ? idx + 2 : idx + 1;
+          lines[l] = lines[l].substring(0, idx) + lines[l].substring(end);
+        } else {
+          const m = lines[l].match(/^(\s*)/);
+          const indent = m ? m[1].length : 0;
+          lines[l] = lines[l].substring(0, indent) + comment + lines[l].substring(indent);
+        }
+      }
+      return {
+        handled: true,
+        edit: { replaceAll: lines, cursors: ctx.cursors.map((c) => ({ ...c })) },
+      };
+    }
+    return null;
   },
 
   onFormat(ctx: PluginContext) {

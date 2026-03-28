@@ -13,8 +13,8 @@ importers:
         version: 2.8.3
     devDependencies:
       '@jano-editor/plugin-types':
-        specifier: ^1.0.0-alpha.1
-        version: 1.0.0-alpha.1
+        specifier: 1.0.0-alpha.3
+        version: 1.0.0-alpha.3
       esbuild:
         specifier: ^0.24.0
         version: 0.24.2
@@ -171,8 +171,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@jano-editor/plugin-types@1.0.0-alpha.1':
-    resolution: {integrity: sha512-Og1E/4Oi98/P7gxWch1x1wpf/glRNMdSv6qolompmXjNhyqWeiQbFLtrGpn8zS8tmjesW4DBD9LMuBXr7O+V9Q==}
+  '@jano-editor/plugin-types@1.0.0-alpha.3':
+    resolution: {integrity: sha512-qCKEbiksdm4HN9dJkIXPOVK6UJhDnCzdKvyrrem/5V7P8s1knSTXD+wz2mKbXY84ZSG5qIl9YCYncf67JnndCA==}
 
   esbuild@0.24.2:
     resolution: {integrity: sha512-+9egpBW8I3CD5XPe0n6BfT5fxLzxrlDzqydF3aviG+9ni1lDC/OvMHcxqEFV0+LANZG5R1bFMWfUrjVsdwxJvA==}
@@ -261,7 +261,7 @@ snapshots:
   '@esbuild/win32-x64@0.24.2':
     optional: true
 
-  '@jano-editor/plugin-types@1.0.0-alpha.1': {}
+  '@jano-editor/plugin-types@1.0.0-alpha.3': {}
 
   esbuild@0.24.2:
     optionalDependencies:
