@@ -1,6 +1,6 @@
 {
   "name": "yaml",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "api": 1,
   "description": "YAML syntax highlighting and formatting",
   "extensions": [".yml", ".yaml"],
