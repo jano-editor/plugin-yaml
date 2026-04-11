@@ -1,9 +1,78 @@
-import type { LanguagePlugin, PluginContext, KeyInfo } from "@jano-editor/plugin-types";
+import type {
+  LanguagePlugin,
+  PluginContext,
+  KeyInfo,
+  CompletionItem,
+} from "@jano-editor/plugin-types";
 import { parse, parseDocument } from "yaml";
 
-const TAB_SIZE = 2;
+const DEFAULT_TAB_SIZE = 2;
 
 const keywords = ["true", "false", "null", "yes", "no", "on", "off"];
+
+// common YAML keys for docker-compose and kubernetes
+const dockerComposeKeys: CompletionItem[] = [
+  { label: "version", kind: "property", detail: "compose" },
+  { label: "services", kind: "property", detail: "compose" },
+  { label: "volumes", kind: "property", detail: "compose" },
+  { label: "networks", kind: "property", detail: "compose" },
+  { label: "image", kind: "property", detail: "service" },
+  { label: "build", kind: "property", detail: "service" },
+  { label: "ports", kind: "property", detail: "service" },
+  { label: "environment", kind: "property", detail: "service" },
+  { label: "volumes", kind: "property", detail: "service" },
+  { label: "depends_on", kind: "property", detail: "service" },
+  { label: "restart", kind: "property", detail: "service" },
+  { label: "command", kind: "property", detail: "service" },
+  { label: "container_name", kind: "property", detail: "service" },
+  { label: "networks", kind: "property", detail: "service" },
+  { label: "labels", kind: "property", detail: "service" },
+  { label: "healthcheck", kind: "property", detail: "service" },
+  { label: "deploy", kind: "property", detail: "service" },
+  { label: "logging", kind: "property", detail: "service" },
+  { label: "env_file", kind: "property", detail: "service" },
+  { label: "expose", kind: "property", detail: "service" },
+];
+
+const kubernetesKeys: CompletionItem[] = [
+  { label: "apiVersion", kind: "property", detail: "k8s" },
+  { label: "kind", kind: "property", detail: "k8s" },
+  { label: "metadata", kind: "property", detail: "k8s" },
+  { label: "spec", kind: "property", detail: "k8s" },
+  { label: "name", kind: "property", detail: "meta" },
+  { label: "namespace", kind: "property", detail: "meta" },
+  { label: "labels", kind: "property", detail: "meta" },
+  { label: "annotations", kind: "property", detail: "meta" },
+  { label: "containers", kind: "property", detail: "spec" },
+  { label: "replicas", kind: "property", detail: "spec" },
+  { label: "selector", kind: "property", detail: "spec" },
+  { label: "template", kind: "property", detail: "spec" },
+  { label: "ports", kind: "property", detail: "container" },
+  { label: "env", kind: "property", detail: "container" },
+  { label: "resources", kind: "property", detail: "container" },
+  { label: "volumeMounts", kind: "property", detail: "container" },
+];
+
+const yamlValues: Record<string, CompletionItem[]> = {
+  restart: [
+    { label: "always", kind: "constant" },
+    { label: "unless-stopped", kind: "constant" },
+    { label: "on-failure", kind: "constant" },
+    { label: "no", kind: "constant" },
+  ],
+  kind: [
+    { label: "Deployment", kind: "constant", detail: "k8s" },
+    { label: "Service", kind: "constant", detail: "k8s" },
+    { label: "ConfigMap", kind: "constant", detail: "k8s" },
+    { label: "Secret", kind: "constant", detail: "k8s" },
+    { label: "Pod", kind: "constant", detail: "k8s" },
+    { label: "Ingress", kind: "constant", detail: "k8s" },
+    { label: "StatefulSet", kind: "constant", detail: "k8s" },
+    { label: "DaemonSet", kind: "constant", detail: "k8s" },
+    { label: "Job", kind: "constant", detail: "k8s" },
+    { label: "CronJob", kind: "constant", detail: "k8s" },
+  ],
+};
 
 const plugin: LanguagePlugin = {
   name: "YAML",
@@ -59,7 +128,7 @@ const plugin: LanguagePlugin = {
     const raw = ctx.lines.join("\n");
     try {
       const doc = parseDocument(raw);
-      const formatted = doc.toString({ indent: TAB_SIZE, lineWidth: 0 });
+      const formatted = doc.toString({ indent: ctx.settings.tabSize, lineWidth: 0 });
       return {
         replaceAll: formatted.split("\n"),
         cursors: [{ position: ctx.cursors[0].position, anchor: null }],
@@ -79,7 +148,7 @@ const plugin: LanguagePlugin = {
     let indent = match ? match[1] : "";
 
     if (/:\s*$/.test(prevLine)) {
-      indent += " ".repeat(TAB_SIZE);
+      indent += " ".repeat(ctx.settings.tabSize);
     } else if (/^\s*-\s/.test(prevLine)) {
       // continue list, keep indent
     } else if (prevLine.trim() === "") {
@@ -97,6 +166,47 @@ const plugin: LanguagePlugin = {
       ],
       cursors: [{ position: { line: curLine, col: indent.length }, anchor: null }],
     };
+  },
+
+  onComplete(ctx: PluginContext): CompletionItem[] | null {
+    const cursor = ctx.cursors[0];
+    if (!cursor) return null;
+
+    const line = ctx.lines[cursor.position.line] ?? "";
+    const col = cursor.position.col;
+
+    // detect if we're after a key: (value position)
+    const keyMatch = line.match(/^(\s*)([\w.-]+)\s*:\s*/);
+    if (keyMatch && col >= keyMatch[0].length) {
+      const key = keyMatch[2];
+      if (yamlValues[key]) return yamlValues[key];
+      // boolean values as fallback
+      return keywords.map((k) => ({ label: k, kind: "constant" as const }));
+    }
+
+    // always offer all known keys — the editor filters by prefix
+    const items: CompletionItem[] = [
+      ...dockerComposeKeys,
+      ...kubernetesKeys,
+    ];
+
+    // deduplicate (some keys appear in both lists)
+    const seen = new Set<string>();
+    const deduped: CompletionItem[] = [];
+    for (const item of items) {
+      if (!seen.has(item.label)) {
+        seen.add(item.label);
+        deduped.push(item);
+      }
+    }
+
+    for (const kw of keywords) {
+      if (!seen.has(kw)) {
+        deduped.push({ label: kw, kind: "keyword" });
+      }
+    }
+
+    return deduped;
   },
 
   onValidate(lines: readonly string[]) {

@@ -1,6 +1,6 @@
 {
   "name": "jano-plugin-yaml",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "YAML syntax highlighting and formatting plugin for jano editor",
   "type": "module",
   "main": "dist/index.js",
@@ -8,7 +8,7 @@
     "build": "esbuild src/index.ts --bundle --format=esm --platform=node --outfile=dist/index.js --external:process"
   },
   "devDependencies": {
-    "@jano-editor/plugin-types": "1.0.0-alpha.3",
+    "@jano-editor/plugin-types": "1.0.0-alpha.4",
     "esbuild": "^0.24.0"
   },
   "license": "MIT",
